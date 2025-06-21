@@ -1,0 +1,11 @@
+[Unit]
+Description=Automatically switch tuned profile based on process
+
+[Service]
+ExecStart=/usr/local/bin/tuned-watch.sh
+Type=simple
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
