@@ -1,8 +1,7 @@
 #!/bin/bash
-# /usr/local/bin/tuned-watch.sh
 
 # Configuration file path
-CONFIG_FILE=~/.config/tuned-watch.conf # Adjust path as needed for user service config
+CONFIG_FILE=$HOME/.config/tuned-watch.conf # Adjust path as needed for user service config
 
 # Check if config file exists
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -15,17 +14,16 @@ fi
 source "$CONFIG_FILE"
 
 log_message() {
-    logger -t tuned-watch "INFO: $1"
+    logger -s -t tuned-watch "INFO: $1"
 }
 
-# Function to get the current active tuned profile
-get_current_profile() {
-    tuned-adm active | awk -F': ' '{print $2}'
+log_error() {
+    logger -s -t tuned-watch "ERROR: $1"
 }
 
-# Function to find the profile associated with any running process
-# Returns the profile name if found, otherwise an empty string
-find_running_process_profile() {
+# Function to find the data associated with any running process
+# Returns the profile name and schedular if found, otherwise an empty string
+find_running_process_data() {
     for process_name in "${!GAME_PROCESS_PROFILES[@]}"; do # Iterate over keys (process names)
         if pgrep -x "$process_name" > /dev/null; then
             echo "${GAME_PROCESS_PROFILES[$process_name]}" # Return the associated profile
@@ -35,22 +33,89 @@ find_running_process_profile() {
     return 1 # No configured processes found running
 }
 
+# Setting default state
+IFS=':' read -r DEFAULT_PROFILE DEFAULT_SCHEDULER DEFAULT_MODE <<< "$DEFAULT_PROFILE"
+
 # Main loop
 while true; do
-    CURRENT_PROFILE=$(get_current_profile)
-    DESIRED_PROFILE=$(find_running_process_profile) # Get the profile for any running game/app
+
+    APP_DATA=$(find_running_process_data) # Get the data for any running game/app
+    IFS=':' read -r DESIRED_PROFILE DESIRED_SCHEDULER DESIRED_MODE <<< "$APP_DATA"
 
     if [ -n "$DESIRED_PROFILE" ]; then # Check if DESIRED_PROFILE is not empty (i.e., a process was found)
         # A configured process is running, and we know its desired profile
         if [ "$CURRENT_PROFILE" != "$DESIRED_PROFILE" ]; then
-            log_message "Process associated with '$DESIRED_PROFILE' profile detected. Switching to '$DESIRED_PROFILE'."
+            log_message "Switching tuned profile to '$DESIRED_PROFILE'."
             tuned-adm profile "$DESIRED_PROFILE"
+            if [ $? = 0 ]; then
+                CURRENT_PROFILE="$DESIRED_PROFILE"
+            else
+                log_error "Couldn't change profile"
+            fi
         fi
     else
         # No configured processes are running
         if [ "$CURRENT_PROFILE" != "$DEFAULT_PROFILE" ]; then # Only switch if not already on default
-            log_message "No configured processes detected. Switching back to '$DEFAULT_PROFILE' profile."
+            log_message "Switching back to default profile."
             tuned-adm profile "$DEFAULT_PROFILE"
+            if [ $? = 0 ]; then
+                CURRENT_PROFILE="$DEFAULT_PROFILE"
+            else
+                log_error "Couldn't change profile"
+            fi
+        fi
+    fi
+
+
+    if [ -z "$DESIRED_SCHEDULER" ]; then # Check if the data requires a scheduler
+        if [ -z $DEFAULT_SCHEDULER ]; then
+            DESIRED_SCHEDULER="unknown"
+        else
+            DESIRED_SCHEDULER="scx_$DEFAULT_SCHEDULER"
+        fi
+    else
+        DESIRED_SCHEDULER="scx_$DESIRED_SCHEDULER"
+    fi
+
+
+    if [ -z "$DESIRED_MODE" ]; then
+        if [ -z "$DEFAULT_MODE" ]; then
+            DESIRED_MODE=0
+        else
+            DESIRED_MODE=$DEFAULT_MODE
+        fi
+    fi
+
+
+    if [ -z "$CURRENT_MODE" ]; then
+        CURRENT_MODE=0
+    fi
+
+
+    if [ "$CURRENT_SCHEDULER" = "unknown" ]; then
+        CURRENT_MODE=0
+    fi
+
+
+    if [[ $CURRENT_SCHEDULER != $DESIRED_SCHEDULER || $CURRENT_MODE != $DESIRED_MODE ]]; then
+        if [ "$DESIRED_SCHEDULER" = "unknown" ]; then
+            log_message "Stoping scheduler"
+            dbus-send --system --print-reply --dest=org.scx.Loader /org/scx/Loader org.scx.Loader.StopScheduler > /dev/null
+            if [ $? = 0 ]; then
+                CURRENT_SCHEDULER="unknown"
+                CURRENT_MODE=0
+            else
+                log_error "Couldn't stop scheduler"
+            fi
+        else
+            log_message "Switching to scheduler $DESIRED_SCHEDULER mode $DESIRED_MODE"
+            dbus-send --system --print-reply --dest=org.scx.Loader /org/scx/Loader org.scx.Loader.SwitchScheduler string:$DESIRED_SCHEDULER uint32:$DESIRED_MODE > /dev/null
+            if [ $? = 0 ];then
+                CURRENT_SCHEDULER="$DESIRED_SCHEDULER"
+                CURRENT_MODE="$DESIRED_MODE"
+            else
+                log_error "Couldn't change scheduler"
+            fi
         fi
     fi
 
