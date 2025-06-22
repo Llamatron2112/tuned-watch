@@ -1,0 +1,6 @@
+[Path]
+PathChanged=%h/.config/tuned-watch.conf
+
+[Install]
+WantedBy=tuned-watch-restarter.service
+

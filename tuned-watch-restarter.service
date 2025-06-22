@@ -1,0 +1,10 @@
+[Unit]
+Description=tuned-watch restarter
+After=tuned-watch.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user restart tuned-watch.service
+
+[Install]
+WantedBy=tuned-watch.service
