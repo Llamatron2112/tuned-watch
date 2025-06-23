@@ -1,6 +1,6 @@
 [Unit]
 Description=Automatically switch tuned profile based on process
-Wants=tuned-watch-restarter.service tuned-watch-restarter.path
+Wants=tuned-watch-restarter.service tuned-watch-restarter.path scx_loader.service
 After=tuned-watch-restarter.path
 
 [Service]
