@@ -1,6 +1,9 @@
+[Unit]
+Description=Watch changes to tuned-watch.conf
+
 [Path]
 PathChanged=%h/.config/tuned-watch.conf
 
 [Install]
-WantedBy=tuned-watch-restarter.service
+WantedBy=default.target
 

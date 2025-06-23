@@ -1,6 +1,7 @@
 [Unit]
 Description=Automatically switch tuned profile based on process
-Wants=tuned-watch-restarter.service
+Wants=tuned-watch-restarter.service tuned-watch-restarter.path
+After=tuned-watch-restarter.path
 
 [Service]
 ExecStart=/usr/local/bin/tuned-watch
