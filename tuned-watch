@@ -14,18 +14,18 @@ fi
 source "$CONFIG_FILE"
 
 log_message() {
-    logger -s -t tuned-watch "INFO: $1"
+    echo $1
 }
 
 log_error() {
-    logger -s -t tuned-watch "ERROR: $1"
+    echo $1
 }
 
 # Function to find the data associated with any running process
 # Returns the profile name and schedular if found, otherwise an empty string
 find_running_process_data() {
     for process_name in "${!GAME_PROCESS_PROFILES[@]}"; do # Iterate over keys (process names)
-        if pgrep -x "$process_name" > /dev/null; then
+        if pgrep -x "${process_name:0:15}" > /dev/null; then # pgrep can't see more than 15 characters, triming
             echo "${GAME_PROCESS_PROFILES[$process_name]}" # Return the associated profile
             return 0 # Found a running process, exit
         fi
